@@ -8,7 +8,7 @@ new_key_type! {
     pub struct TodoKey;
 }
 
-#[derive(Debug, Store)] // , Serialize, Deserialize not implemented for Store<Todo>.
+#[derive(Debug, Store, Serialize, Deserialize)]
 struct Todos {
     user: User,
     // Note the difference! We have a SlotMap now, containing a nested Store per todo.
@@ -62,7 +62,7 @@ impl Todo {
 }
 
 fn data() -> Todos {
-    let mut map: SlotMap<TodoKey, Store<Todo>> = SlotMap::default();
+    let mut map: SlotMap<TodoKey, Store<Todo>> = SlotMap::with_key();
 
     ["Create reactive store", "???", "Profit"]
         .into_iter()
@@ -106,7 +106,7 @@ pub fn App() -> impl IntoView {
             <TodoRow store todo />
         </For>
         <ol></ol>
-        // Serialization not implemented on Store<T> <pre>{move || serde_json::to_string_pretty(&*store.read())}</pre>
+        <pre>{move || serde_json::to_string_pretty(&*store.read())}</pre>
     }
 }
 
