@@ -46,7 +46,7 @@ impl Status {
                 date: Local::now().naive_local().into(),
             },
             Status::Scheduled | Status::ScheduledFor { .. } => Status::Done,
-            Status::Done => Status::Done,
+            Status::Done => Status::Pending,
         };
     }
 }
