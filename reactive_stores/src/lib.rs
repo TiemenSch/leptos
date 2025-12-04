@@ -270,6 +270,8 @@ mod len;
 mod option;
 mod patch;
 mod path;
+#[cfg(feature = "serde")]
+mod serde;
 mod store_field;
 mod subfield;
 
