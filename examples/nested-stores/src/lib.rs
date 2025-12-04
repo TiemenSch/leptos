@@ -138,7 +138,10 @@ fn UserForm(#[prop(into)] user: Field<User>) -> impl IntoView {
 }
 
 #[component]
-fn TodoRow(store: Store<Todos>, todo: Store<Todo>) -> impl IntoView {
+fn TodoRow(
+    #[prop(into)] store: Field<Todos>,
+    #[prop(into)] todo: Field<Todo>,
+) -> impl IntoView {
     let status = todo.status();
     let title = todo.label();
 
