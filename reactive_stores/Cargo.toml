@@ -10,8 +10,9 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = []
+default = ["slotmap"]
 serde = ["dep:serde"]
+slotmap = ["dep:slotmap"]
 
 [dependencies]
 guardian = { workspace = true, default-features = true }
@@ -24,6 +25,7 @@ reactive_stores_macro = { workspace = true }
 dashmap = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 serde = { workspace = true, optional = true }
+slotmap = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { features = [
