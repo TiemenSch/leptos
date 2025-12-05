@@ -18,18 +18,12 @@ use std::{
     fmt::Debug,
     hash::Hash,
     iter,
-    ops::{Deref, DerefMut, IndexMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
     panic::Location,
 };
 
-/// Blanket implementation flag for all IndexMut collection types.
-pub struct Blanket;
-
-/// Custom implementation flag.
-pub struct Custom;
-
 /// Accesses an item form a collection.
-pub trait KeyedAccess<I = Custom> {
+pub trait KeyedAccess {
     /// Key used to access values.
     type Key;
     /// Collection values.
@@ -39,10 +33,7 @@ pub trait KeyedAccess<I = Custom> {
     /// Acquire read-only access to a value.
     fn keyed(&self, key: Self::Key) -> &Self::Value;
 }
-/// Blanket implementation for all IndexMut types.
-impl<T, Collection: IndexMut<usize, Output = T>> KeyedAccess<Blanket>
-    for Collection
-{
+impl<T> KeyedAccess for VecDeque<T> {
     type Key = usize;
     type Value = T;
     fn keyed(&self, key: Self::Key) -> &Self::Value {
@@ -52,8 +43,27 @@ impl<T, Collection: IndexMut<usize, Output = T>> KeyedAccess<Blanket>
         self.index_mut(key)
     }
 }
-/// Custom BTreeMap implementation to circumvent IndexMut having been retracted for map types.
-impl<K: Ord, V> KeyedAccess<Custom> for std::collections::BTreeMap<K, V> {
+impl<T> KeyedAccess for Vec<T> {
+    type Key = usize;
+    type Value = T;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.index(key)
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.index_mut(key)
+    }
+}
+impl<T> KeyedAccess for [T] {
+    type Key = usize;
+    type Value = T;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.index(key)
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.index_mut(key)
+    }
+}
+impl<K: Ord, V> KeyedAccess for std::collections::BTreeMap<K, V> {
     type Key = K;
     type Value = V;
     fn keyed(&self, key: Self::Key) -> &Self::Value {
@@ -63,8 +73,7 @@ impl<K: Ord, V> KeyedAccess<Custom> for std::collections::BTreeMap<K, V> {
         self.get_mut(&key).expect("key does not exist")
     }
 }
-/// Custom HashMap implementation to circumvent IndexMut having been retracted for map types.
-impl<K: Hash + Eq, V> KeyedAccess<Custom> for std::collections::HashMap<K, V> {
+impl<K: Hash + Eq, V> KeyedAccess for std::collections::HashMap<K, V> {
     type Key = K;
     type Value = V;
     fn keyed(&self, key: Self::Key) -> &Self::Value {
