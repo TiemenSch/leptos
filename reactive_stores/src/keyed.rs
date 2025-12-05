@@ -495,6 +495,17 @@ where
 
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
+        let inner_path = self.inner.path().into_iter().collect();
+        let keys = self.inner.keys()?;
+
+        // Check whether the key path still exists.
+        keys.with_field_keys(
+            inner_path,
+            |keys| (keys.get(&self.key), vec![]),
+            || self.inner.latest_keys(),
+        )
+        .flatten()?;
+
         let key = self.key;
         Some(MappedMutArc::new(
             inner,
@@ -506,6 +517,20 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let mut inner = self.inner.writer()?;
         inner.untrack();
+        let inner_path = self.inner.path().into_iter().collect::<StorePath>();
+        let keys = self
+            .inner
+            .keys()
+            .expect("using keys on a store with no keys");
+
+        // Check whether the key path still exists.
+        keys.with_field_keys(
+            inner_path.clone(),
+            |keys| (keys.get(&self.key), vec![]),
+            || self.inner.latest_keys(),
+        )
+        .flatten()?;
+
         let triggers = self.triggers_for_current_path();
         let key = self.key;
         Some(WriteGuard::new(
