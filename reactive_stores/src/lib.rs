@@ -272,6 +272,8 @@ mod patch;
 mod path;
 #[cfg(feature = "serde")]
 mod serde;
+#[cfg(feature = "slotmap")]
+mod slotmap;
 mod store_field;
 mod subfield;
 
