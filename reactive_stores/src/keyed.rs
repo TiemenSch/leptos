@@ -14,7 +14,7 @@ use reactive_graph::{
     },
 };
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::VecDeque,
     fmt::Debug,
     hash::Hash,
     iter,
@@ -35,30 +35,42 @@ pub trait KeyedAccess<I = Custom> {
     /// Collection values.
     type Value;
     /// Acquire mutable access to a value.
-    fn get_mut(&mut self, key: Self::Key) -> &mut Self::Value;
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value;
     /// Acquire read-only access to a value.
-    fn get(&self, key: Self::Key) -> &Self::Value;
+    fn keyed(&self, key: Self::Key) -> &Self::Value;
 }
-/// A blanket implementation for IndexMut<T> would be great, though stdlib has pulled this
+/// Blanket implementation for all IndexMut types.
 impl<T, Collection: IndexMut<usize, Output = T>> KeyedAccess<Blanket>
     for Collection
 {
     type Key = usize;
     type Value = T;
-    fn get(&self, key: Self::Key) -> &Self::Value {
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
         self.index(key)
     }
-    fn get_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
         self.index_mut(key)
     }
 }
-impl<K: Ord, V> KeyedAccess<Custom> for BTreeMap<K, V> {
+/// Custom BTreeMap implementation to circumvent IndexMut having been retracted for map types.
+impl<K: Ord, V> KeyedAccess<Custom> for std::collections::BTreeMap<K, V> {
     type Key = K;
     type Value = V;
-    fn get(&self, key: Self::Key) -> &Self::Value {
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
         self.get(&key).expect("key does not exist")
     }
-    fn get_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.get_mut(&key).expect("key does not exist")
+    }
+}
+/// Custom HashMap implementation to circumvent IndexMut having been retracted for map types.
+impl<K: Hash + Eq, V> KeyedAccess<Custom> for std::collections::HashMap<K, V> {
+    type Key = K;
+    type Value = V;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.get(&key).expect("key does not exist")
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
         self.get_mut(&key).expect("key does not exist")
     }
 }
@@ -509,8 +521,8 @@ where
         let key = self.key;
         Some(MappedMutArc::new(
             inner,
-            move |n| n.get(key),
-            move |n| n.get_mut(key),
+            move |n| n.keyed(key),
+            move |n| n.keyed_mut(key),
         ))
     }
 
@@ -537,8 +549,8 @@ where
             triggers,
             MappedMutArc::new(
                 inner,
-                move |n| n.get(key),
-                move |n| n.get_mut(key),
+                move |n| n.keyed(key),
+                move |n| n.keyed_mut(key),
             ),
         ))
     }
