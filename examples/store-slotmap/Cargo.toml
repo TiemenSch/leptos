@@ -1,5 +1,5 @@
 [package]
-name = "nested-stores"
+name = "store-slotmap"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,7 +10,10 @@ lto = true
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
-reactive_stores = { path = "../../reactive_stores", features = ["serde"] }
+reactive_stores = { path = "../../reactive_stores", features = [
+    "serde",
+    "slotmap",
+] }
 reactive_stores_macro = { path = "../../reactive_stores_macro" }
 console_error_panic_hook = "0.1.7"
 chrono = { version = "0.4.38", features = ["serde"] }

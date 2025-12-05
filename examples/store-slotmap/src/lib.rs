@@ -1,31 +1,34 @@
 use chrono::{Local, NaiveDate};
 use leptos::{logging::warn, prelude::*};
-use reactive_stores::{Field, Patch, Store};
+use reactive_stores::{Field, Store};
 use serde::{Deserialize, Serialize};
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{new_key_type, DenseSlotMap, HopSlotMap};
 
 new_key_type! {
     pub struct TodoKey;
 }
 
-#[derive(Debug, Store, Serialize, Deserialize)]
-struct Todos {
-    user: User,
-    // Note the difference! We have a SlotMap now, containing a nested Store per todo.
-    todos: SlotMap<TodoKey, Store<Todo>>,
+#[derive(Debug, Store, Default, Serialize, Deserialize)]
+pub struct Data {
+    /// Todos per user.
+    #[store(key: TodoKey = |(k,_)| k)]
+    todos: HopSlotMap<TodoKey, Todo>,
 }
 
-#[derive(Debug, Store, Patch, Serialize, Deserialize)]
-struct User {
-    name: String,
-    email: String,
-}
-
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Clone, Debug, Store, Serialize, Deserialize)]
 struct Todo {
     id: TodoKey,
     label: String,
     status: Status,
+}
+impl Todo {
+    fn new<S: ToString>(key: TodoKey, label: S) -> Self {
+        Self {
+            id: key,
+            label: label.to_string(),
+            status: Status::Pending,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Store, Serialize, Deserialize)]
@@ -38,7 +41,6 @@ enum Status {
     },
     Done,
 }
-
 impl Status {
     pub fn next_step(&mut self) {
         *self = match self {
@@ -51,95 +53,38 @@ impl Status {
     }
 }
 
-impl Todo {
-    pub fn new(id: TodoKey, label: impl ToString) -> Self {
-        Self {
-            id,
-            label: label.to_string(),
-            status: Status::Pending,
-        }
-    }
-}
-
-fn data() -> Todos {
-    let mut map: SlotMap<TodoKey, Store<Todo>> = SlotMap::with_key();
-
-    ["Create reactive store", "???", "Profit"]
-        .into_iter()
-        .for_each(|label| {
-            map.insert_with_key(|key| Store::new(Todo::new(key, label)));
-        });
-
-    Todos {
-        user: User {
-            name: "Bob".to_string(),
-            email: "lawblog@bobloblaw.com".into(),
-        },
-        todos: map,
-    }
-}
-
 #[component]
 pub fn App() -> impl IntoView {
-    let store = Store::new(data());
+    let store = Store::new(Data::default());
 
     let input_ref = NodeRef::new();
 
     view! {
-        <p>"Hello, " {move || store.user().name().get()}</p>
-        <UserForm user=store.user() />
-        <hr />
         <form on:submit=move |ev| {
             ev.prevent_default();
             store
                 .todos()
                 .write()
-                .insert_with_key(|key| {
-                    Store::new(Todo::new(key, input_ref.get().unwrap().value()))
-                });
+                .insert_with_key(|key| { Todo::new(key, input_ref.get().unwrap().value()) });
         }>
             <label>"Add a Todo" <input type="text" node_ref=input_ref /></label>
             <input type="submit" />
         </form>
-
-        <For each=move || store.todos().get().into_iter() key=|row| row.0 let:((_,todo))>
-            <TodoRow store todo />
-        </For>
-        <ol></ol>
+        <ol>
+            // because `todos` is a keyed field, `store.todos()` returns a struct that
+            // directly implements IntoIterator, so we can use it in <For/> and
+            // it will manage reactivity for the store fields correctly
+            <For each=move || store.todos() key=|row| row.id().get() let:todo>
+                <TodoRow store todo />
+            </For>
+        </ol>
         <pre>{move || serde_json::to_string_pretty(&*store.read())}</pre>
     }
 }
 
 #[component]
-fn UserForm(#[prop(into)] user: Field<User>) -> impl IntoView {
-    let error = RwSignal::new(None);
-
-    view! {
-        {move || error.get().map(|n| view! { <p>{n}</p> })}
-        <form on:submit:target=move |ev| {
-            ev.prevent_default();
-            match User::from_event(&ev) {
-                Ok(new_user) => {
-                    error.set(None);
-                    user.patch(new_user);
-                }
-                Err(e) => error.set(Some(e.to_string())),
-            }
-        }>
-            <label>
-                "Name" <input type="text" name="name" prop:value=move || user.name().get() />
-            </label>
-            <label>
-                "Email" <input type="email" name="email" prop:value=move || user.email().get() />
-            </label>
-            <input type="submit" />
-        </form>
-    }
-}
-
-#[component]
 fn TodoRow(
-    #[prop(into)] store: Field<Todos>,
+    store: Store<Data>,
     #[prop(into)] todo: Field<Todo>,
 ) -> impl IntoView {
     let status = todo.status();
@@ -192,7 +137,7 @@ fn TodoRow(
 
             <button on:click=move |_| {
                 let id = todo.id().get();
-                store.todos().write().retain(|_, todo| todo.id().with(|x| x != &id));
+                store.todos().write().retain(|_, todo| &todo.id != &id);
             }>"X"</button>
             <input
                 type="date"
@@ -213,7 +158,6 @@ fn TodoRow(
                     }
                 }
             />
-
         </li>
     }
 }
